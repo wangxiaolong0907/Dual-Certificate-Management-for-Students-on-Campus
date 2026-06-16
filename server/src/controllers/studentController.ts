@@ -1,6 +1,13 @@
 import { Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
 import { queryAll, queryOne, run, saveDb } from '../database/init';
 import * as XLSX from 'xlsx';
+
+/** Generate default password hash from last 6 digits of student_no */
+function defaultPasswordHash(studentNo: string): string {
+  const pwd = studentNo.slice(-6);
+  return bcrypt.hashSync(pwd, 10);
+}
 
 export function getStudents(req: Request, res: Response): void {
   try {
@@ -52,9 +59,10 @@ export function createStudent(req: Request, res: Response): void {
       return;
     }
 
+    const pwdHash = defaultPasswordHash(student_no);
     const result = run(
-      'INSERT INTO students (student_no, name, class_name, major, grade, phone, email) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [student_no, name, class_name, major || '', grade || '', phone || '', email || '']
+      'INSERT INTO students (student_no, name, class_name, major, grade, phone, email, password_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [student_no, name, class_name, major || '', grade || '', phone || '', email || '', pwdHash]
     );
     saveDb();
 
@@ -144,8 +152,9 @@ export function batchImportStudents(req: Request, res: Response): void {
         continue;
       }
 
-      run('INSERT INTO students (student_no, name, class_name, major, grade, phone, email) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [student_no, name, class_name, major, grade, phone, email]);
+      const pwdHash = defaultPasswordHash(student_no);
+      run('INSERT INTO students (student_no, name, class_name, major, grade, phone, email, password_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [student_no, name, class_name, major, grade, phone, email, pwdHash]);
       successCount++;
     }
     saveDb();
